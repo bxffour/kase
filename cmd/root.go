@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,30 +16,65 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 
+	"github.com/bxffour/kase/utils"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-
+var (
+	statePath        string
+	logFile          string
+	logFormat        string
+	xdgDirUsed       = false
+	debug            bool
+	useSystemdCgroup bool
+	rootless         string
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "kase",
-	Short: "A brief description of your application",
+	Short: "kase is a simple OCI compliant container runtime",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
 
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		switch {
+		case xdgDirUsed:
+			if err := os.MkdirAll(statePath, 0o700); err != nil {
+				fmt.Fprintln(os.Stderr, "the path to $XDG_RUNTIME_DIR must be writable by the user")
+				os.Exit(1)
+			}
+
+			if err := os.Chmod(statePath, 0o700|os.ModeSticky); err != nil {
+				fmt.Fprintln(os.Stderr, "please check the permission of the path in $XDG_RUNTIME_DIR")
+				os.Exit(1)
+			}
+
+		default:
+			var err error
+
+			statePath, err = utils.ReviseStateDir(statePath)
+			if err != nil {
+				return err
+			}
+		}
+
+		return configLogrus(debug, logFile, logFormat)
+	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -48,15 +83,56 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+	defaultStateDir := "/run/kase"
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.kase.yaml)")
+	xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if xdgRuntimeDir != "" && utils.ShouldHonorXDGRuntimeDir() {
+		defaultStateDir = xdgRuntimeDir + "/kase"
+		xdgDirUsed = true
+	}
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
+	rootCmd.PersistentFlags().StringVar(&statePath, "state-path", defaultStateDir, "root directory for container state")
+	rootCmd.PersistentFlags().BoolVar(&useSystemdCgroup, "systemd-cgroup", false, "enable systemd cgroup support")
+	rootCmd.PersistentFlags().StringVar(&rootless, "rootless", "auto", "ignore cgroup permission errors")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
+	rootCmd.PersistentFlags().StringVar(&logFile, "log", "/dev/stderr", "set log file to write kase logs to")
+	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "text", "set the log format")
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
+func configLogrus(debug bool, logFile, logFormat string) error {
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		logrus.SetReportCaller(true)
 
+		_, file, _, _ := runtime.Caller(0)
+		prefix := filepath.Dir(file) + "/"
+		logrus.SetFormatter(&logrus.TextFormatter{
+			CallerPrettyfier: func(f *runtime.Frame) (function string, file string) {
+				function = strings.TrimPrefix(f.Function, prefix) + "()"
+				fileLine := strings.TrimPrefix(f.File, prefix) + ":" + strconv.Itoa(f.Line)
+				return function, fileLine
+			},
+		})
+	}
+
+	switch logFormat {
+	case "text":
+		// do nothing
+	case "json":
+		logrus.SetFormatter(new(logrus.JSONFormatter))
+	default:
+		return errors.New("invalid log-format: " + logFormat)
+	}
+
+	if logFile != "" {
+		f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0o644)
+		if err != nil {
+			return err
+		}
+
+		logrus.SetOutput(f)
+	}
+
+	return nil
+}

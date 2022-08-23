@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,13 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"encoding/json"
+	"os"
 
+	kutils "github.com/bxffour/kase/utils"
+	"github.com/opencontainers/runc/libcontainer"
+	"github.com/opencontainers/runc/libcontainer/utils"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -32,20 +37,47 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("state called")
+		id := args[0]
+		container, err := kutils.GetContainer(statePath, id)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		containerStatus, err := container.Status()
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		state, err := container.State()
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		pid := state.BaseState.InitProcessPid
+		if containerStatus == libcontainer.Stopped {
+			pid = 0
+		}
+
+		bundle, annotations := utils.Annotations(state.Config.Labels)
+		cs := kutils.ConstainerState{
+			Version:     state.BaseState.Config.Version,
+			ID:          state.BaseState.ID,
+			InitPid:     pid,
+			Status:      containerStatus.String(),
+			Bundle:      bundle,
+			Created:     state.BaseState.Created,
+			Annotations: annotations,
+		}
+
+		data, err := json.MarshalIndent(cs, "", " ")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		os.Stdout.Write(data)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(stateCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// stateCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// stateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
