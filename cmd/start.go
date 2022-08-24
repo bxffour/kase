@@ -26,17 +26,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// startCmd represents the start command
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+var startLong = `
+start runs user defines processes in a created container. It takes the container-id as 
+its only argument.
+`
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(1),
+var startExample = `To start a container with id 'alpine01'
+
+	# kase start alpine01`
+
+var startCmd = &cobra.Command{
+	Use:                   "start <container-id>",
+	Short:                 "Start runs user defined process in a created container",
+	Long:                  startLong,
+	Args:                  cobra.ExactArgs(1),
+	Example:               startExample,
+	DisableFlagsInUseLine: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 

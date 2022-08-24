@@ -33,16 +33,26 @@ var (
 	format string
 )
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+var listLong = `
+The 'list' command lists the containers started by kase with
+a given state directory.
+The state directory is specified with the '--state' global option.
+(default: "` + statePath + `")`
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(0),
+var examples = `1. To list containers created via the global state flag
+	# kase list
+
+2. To list containers created via a non default state path
+	# kase --state value list
+`
+
+var listCmd = &cobra.Command{
+	Use:                   "list [OPTIONS]",
+	Short:                 "List lists containers started by kase with a given state directory",
+	Long:                  listLong,
+	Example:               examples,
+	Args:                  cobra.NoArgs,
+	DisableFlagsInUseLine: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		s, err := utils.GetContainers(statePath)
 		if err != nil {
@@ -87,6 +97,6 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(listCmd)
 
-	rootCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "display only ids for containers")
-	rootCmd.Flags().StringVarP(&format, "format", "f", "table", "select 'table' or 'json' as the output format")
+	listCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "display only ids for containers")
+	listCmd.Flags().StringVarP(&format, "format", "f", "table", "select 'table' or 'json' as the output format")
 }

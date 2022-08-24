@@ -23,43 +23,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	bundle        string
-	consoleSocket string
-	pidFIle       string
-	noPivot       bool
-	noNewKeyring  bool
-	preserveFds   int
-)
+var cFlag = runFlags{}
 
-// createCmd represents the create command
+var preserveFdsUsage = "Pass N additional file descriptors to the container (stdio + $LISTEN_FDS + N in total)"
+var consoleUsage = "path to the AF_UNIX for receiving master fd referencing the master end of the console's psuedoterminal"
+
+var createLong = `This command creates an instance of a container for a given bundle. It takes
+the a unique container id as its only are argument.
+`
+
 var createCmd = &cobra.Command{
-	Use:   "create",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(1),
+	Use:                   "create [OPTIONS] <container-id>",
+	Short:                 "Create an instance of a container",
+	Long:                  createLong,
+	Args:                  cobra.ExactArgs(1),
+	DisableFlagsInUseLine: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runner := &utils.RunnerOpts{
-			ConsoleSocket: consoleSocket,
-			PidFile:       pidFIle,
-			NoNewKeyring:  noNewKeyring,
-			PreserveFDs:   preserveFds,
+			ConsoleSocket: cFlag.consoleSocket,
+			PidFile:       cFlag.pidFile,
+			NoNewKeyring:  cFlag.noNewKeyring,
+			PreserveFDs:   cFlag.preseveFds,
 		}
 
 		options := &utils.ConfigOpts{
 			UseSystemdCgroup: useSystemdCgroup,
-			NoPivotRoot:      noPivot,
-			NoNewKeyring:     noNewKeyring,
+			NoPivotRoot:      cFlag.noPivot,
+			NoNewKeyring:     cFlag.noNewKeyring,
 			Rootless:         rootless,
-			StatePath:        statePath,
 		}
 
-		status, err := runner.StartContainer(bundle, args[0], statePath, utils.ACT_CREATE, *options)
+		status, err := runner.StartContainer(cFlag.bundle, args[0], statePath, utils.ACT_CREATE, *options)
 		if err == nil {
 			os.Exit(status)
 		}
@@ -69,16 +63,14 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	consoleUsage := "path to the AF_UNIX for receiving master fd referencing the master end of the console's psuedoterminal"
 	bundleUsage := "path to the root directory of the OCI bundle, defaults to current directory"
-	preserveFdsUsage := "Pass N additional file descriptors to the container (stdio + $LISTEN_FDS + N in total)"
 
 	rootCmd.AddCommand(createCmd)
 
-	createCmd.Flags().StringVarP(&bundle, "bundle", "b", ".", bundleUsage)
-	createCmd.Flags().StringVar(&pidFIle, "pid-file", "", "specify the file to write the process id to")
-	createCmd.Flags().StringVar(&consoleSocket, "console-socket", "", consoleUsage)
-	createCmd.Flags().BoolVar(&noPivot, "no-pivot", false, "deactivate pivot_root()")
-	createCmd.Flags().BoolVar(&noNewKeyring, "no-new-keyring", false, "do not create a new session keyring for the container")
-	createCmd.Flags().IntVar(&preserveFds, "preserve-fds", 0, preserveFdsUsage)
+	createCmd.Flags().StringVarP(&cFlag.bundle, "bundle", "b", ".", bundleUsage)
+	createCmd.Flags().StringVar(&cFlag.pidFile, "pid-file", "", "specify the file to write the process id to")
+	createCmd.Flags().StringVar(&cFlag.consoleSocket, "console-socket", "", consoleUsage)
+	createCmd.Flags().BoolVar(&cFlag.noPivot, "no-pivot", false, "deactivate pivot_root()")
+	createCmd.Flags().BoolVar(&cFlag.noNewKeyring, "no-new-keyring", false, "do not create a new session keyring for the container")
+	createCmd.Flags().IntVar(&cFlag.preseveFds, "preserve-fds", 0, preserveFdsUsage)
 }

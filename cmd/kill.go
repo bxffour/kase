@@ -25,17 +25,24 @@ var (
 	all bool
 )
 
-// killCmd represents the kill command
-var killCmd = &cobra.Command{
-	Use:   "kill",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+var killExample = `1. Sending SIGKILL to all processes inside a container with id alpine01
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.RangeArgs(1, 2),
+  # kase kill --all alpine01 KILL
+
+This commands also supports numerical values for signals. The signal argument is also case 
+insensitive. The following commands are also valid:
+
+  # kase kill alpine01 kill
+
+  # kase kill alpine01 9
+`
+
+var killCmd = &cobra.Command{
+	Use:                   "kill [--all] <container-id> [signal]",
+	Short:                 "Sends a specified signal to a given container's init process.",
+	Example:               killExample,
+	DisableFlagsInUseLine: true,
+	Args:                  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 

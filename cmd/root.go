@@ -39,16 +39,23 @@ var (
 	rootless         string
 )
 
+var rootLong = `
+kase is a simple OCI compliant container runtime. It creates containers from OCI bundles
+and performs other management tasks.
+
+To start a new instance of a container:
+
+  # kase run [-b bundle] <container-id>
+
+The  <container-id> is a unique identifier for the container to be started. Providing the
+bundle is optional. The default value for bundle is the current directory.
+`
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "kase",
-	Short: "kase is a simple OCI compliant container runtime",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:   "kase [GLOBAL OPTIONS]",
+	Short: "Kase is a simple OCI compliant container runtime",
+	Long:  rootLong,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		switch {
 		case xdgDirUsed:
@@ -91,7 +98,7 @@ func init() {
 		xdgDirUsed = true
 	}
 
-	rootCmd.PersistentFlags().StringVar(&statePath, "state-path", defaultStateDir, "root directory for container state")
+	rootCmd.PersistentFlags().StringVar(&statePath, "state", defaultStateDir, "root directory for container state")
 	rootCmd.PersistentFlags().BoolVar(&useSystemdCgroup, "systemd-cgroup", false, "enable systemd cgroup support")
 	rootCmd.PersistentFlags().StringVar(&rootless, "rootless", "auto", "ignore cgroup permission errors")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")

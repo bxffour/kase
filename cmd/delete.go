@@ -46,17 +46,21 @@ func killContainer(container libcontainer.Container) error {
 	return errors.New("container still running")
 }
 
+var example = `
+For a given container 'alpine01', if kase list shows the status as stopped this
+command releases the resources held by alpine01, effectively removing it from 
+kase list.
+
+# kase delete alpine01
+`
+
 // deleteCmd represents the delete command
 var deleteCmd = &cobra.Command{
-	Use:   "delete",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(1),
+	Use:                   "delete [--force] <container-id>",
+	Short:                 "Delete resources held by a container",
+	Example:               example,
+	Args:                  cobra.ExactArgs(1),
+	DisableFlagsInUseLine: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 
@@ -99,6 +103,6 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(deleteCmd)
 
-	deleteCmd.Flags().BoolVarP(&force, "force", "f", false, "uses SIGKILL to forcibly delete container")
+	deleteCmd.Flags().BoolVarP(&force, "force", "f", false, "uses SIGKILL to forcibly delete running container")
 
 }

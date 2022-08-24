@@ -36,10 +36,9 @@ type ConfigOpts struct {
 	NoPivotRoot      bool
 	NoNewKeyring     bool
 	Rootless         string
-	StatePath        string
 }
 
-func (co *ConfigOpts) CreateContainer(id string, spec *specs.Spec) (libcontainer.Container, error) {
+func (co *ConfigOpts) CreateContainer(state string, id string, spec *specs.Spec) (libcontainer.Container, error) {
 	rootlessCg, err := shouldUseRootlessCgroups(co.Rootless, co.UseSystemdCgroup)
 	if err != nil {
 		return nil, err
@@ -59,7 +58,7 @@ func (co *ConfigOpts) CreateContainer(id string, spec *specs.Spec) (libcontainer
 		return nil, err
 	}
 
-	factory, err := loadfactory(co.StatePath)
+	factory, err := loadfactory(state)
 	if err != nil {
 		return nil, err
 	}
@@ -70,9 +69,9 @@ func (co *ConfigOpts) CreateContainer(id string, spec *specs.Spec) (libcontainer
 type RunnerOpts struct {
 	NoSubreaper   bool
 	ShouldDestroy bool
+	NoNewKeyring  bool
 	ConsoleSocket string
 	PidFile       string
-	NoNewKeyring  bool
 	PreserveFDs   int
 }
 
@@ -90,7 +89,7 @@ func (ro *RunnerOpts) revisePidFile() error {
 	return nil
 }
 
-func (ro *RunnerOpts) StartContainer(bundle, id, root string, act action, options ConfigOpts) (int, error) {
+func (ro *RunnerOpts) StartContainer(bundle, id, state string, act action, options ConfigOpts) (int, error) {
 
 	if err := ro.revisePidFile(); err != nil {
 		return -1, err
@@ -105,12 +104,12 @@ func (ro *RunnerOpts) StartContainer(bundle, id, root string, act action, option
 		return -1, errors.New("id must not be empty")
 	}
 
-	nsock := newNotifySocket(root, os.Getenv("NOTIFY_SOCKET"), id)
+	nsock := newNotifySocket(state, os.Getenv("NOTIFY_SOCKET"), id)
 	if nsock != nil {
 		nsock.setupSpec(spec)
 	}
 
-	container, err := options.CreateContainer(id, spec)
+	container, err := options.CreateContainer(state, id, spec)
 	if err != nil {
 		return -1, err
 	}
