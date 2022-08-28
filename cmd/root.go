@@ -99,7 +99,7 @@ func init() {
 		xdgDirUsed = true
 	}
 
-	rootCmd.PersistentFlags().StringVar(&statePath, "state", defaultStateDir, "root directory for container state")
+	rootCmd.PersistentFlags().StringVar(&statePath, "root", defaultStateDir, "root directory for container state")
 	rootCmd.PersistentFlags().BoolVar(&useSystemdCgroup, "systemd-cgroup", false, "enable systemd cgroup support")
 	rootCmd.PersistentFlags().StringVar(&rootless, "rootless", "auto", "ignore cgroup permission errors")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")

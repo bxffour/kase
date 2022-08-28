@@ -413,30 +413,6 @@ func loadfactory(root string) (libcontainer.Factory, error) {
 	)
 }
 
-func validateProcess(p *specs.Process) error {
-	if p == nil {
-		return errors.New("process cannot be nil")
-	}
-
-	if p.Cwd == "" {
-		return errors.New("cwd field cannot be empty")
-	}
-
-	if !filepath.IsAbs(p.Cwd) {
-		return errors.New("filepath must be an absolute")
-	}
-
-	if len(p.Args) == 0 {
-		return errors.New("args must not be new")
-	}
-
-	if p.SelinuxLabel != "" && !selinux.GetEnabled() {
-		return errors.New("selinux specified in config, but is disabled or unsupported")
-	}
-
-	return nil
-}
-
 func createLibContainerRlimit(rlimit specs.POSIXRlimit) (configs.Rlimit, error) {
 	lr, err := strToRlimit(rlimit.Type)
 	if err != nil {
