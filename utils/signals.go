@@ -106,7 +106,7 @@ func (h *signalHandler) reap() (exits []exit, err error) {
 		pid, err := unix.Wait4(-1, &ws, unix.WNOHANG, &rus)
 		if err != nil {
 			if err == unix.ECHILD {
-				return exits, err
+				return exits, nil
 			}
 			return nil, err
 		}
