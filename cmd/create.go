@@ -39,21 +39,28 @@ var createCmd = &cobra.Command{
 	Args:                  cobra.ExactArgs(1),
 	DisableFlagsInUseLine: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := &utils.RunnerOpts{
-			ConsoleSocket: cFlag.consoleSocket,
-			PidFile:       cFlag.pidFile,
-			NoNewKeyring:  cFlag.noNewKeyring,
-			PreserveFDs:   cFlag.preseveFds,
-		}
+		// runner := &utils.RunnerOpts{
+		// 	ConsoleSocket: cFlag.consoleSocket,
+		// 	PidFile:       cFlag.pidFile,
+		// 	NoNewKeyring:  cFlag.noNewKeyring,
+		// 	PreserveFDs:   cFlag.preseveFds,
+		// }
 
-		options := &utils.ConfigOpts{
+		options := utils.FactoryOpts{
 			UseSystemdCgroup: useSystemdCgroup,
 			NoPivotRoot:      cFlag.noPivot,
 			NoNewKeyring:     cFlag.noNewKeyring,
 			Rootless:         rootless,
 		}
 
-		status, err := runner.StartContainer(cFlag.bundle, args[0], statePath, utils.ACT_CREATE, *options)
+		runner := &utils.Runner{
+			FactoryOpts:   options,
+			ConsoleSocket: cFlag.consoleSocket,
+			PidFile:       cFlag.pidFile,
+			PreserveFDS:   cFlag.preseveFds,
+		}
+
+		status, err := runner.StartContainer(cFlag.bundle, args[0], statePath, utils.ACT_CREATE)
 		if err == nil {
 			os.Exit(status)
 		}

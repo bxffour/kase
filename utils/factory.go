@@ -31,24 +31,24 @@ func Destroy(container libcontainer.Container) {
 	}
 }
 
-type ConfigOpts struct {
+type FactoryOpts struct {
 	UseSystemdCgroup bool
 	NoPivotRoot      bool
 	NoNewKeyring     bool
 	Rootless         string
 }
 
-func (co *ConfigOpts) CreateContainer(state string, id string, spec *specs.Spec) (libcontainer.Container, error) {
-	rootlessCg, err := shouldUseRootlessCgroups(co.Rootless, co.UseSystemdCgroup)
+func (f *FactoryOpts) CreateContainer(state string, id string, spec *specs.Spec) (libcontainer.Container, error) {
+	rootlessCg, err := shouldUseRootlessCgroups(f.Rootless, f.UseSystemdCgroup)
 	if err != nil {
 		return nil, err
 	}
 
 	config, err := specconv.CreateLibcontainerConfig(&specconv.CreateOpts{
 		CgroupName:       id,
-		UseSystemdCgroup: co.UseSystemdCgroup,
-		NoPivotRoot:      co.NoPivotRoot,
-		NoNewKeyring:     co.NoNewKeyring,
+		UseSystemdCgroup: f.UseSystemdCgroup,
+		NoPivotRoot:      f.NoPivotRoot,
+		NoNewKeyring:     f.NoNewKeyring,
 		Spec:             spec,
 		RootlessEUID:     os.Geteuid() != 0,
 		RootlessCgroups:  rootlessCg,
@@ -66,22 +66,13 @@ func (co *ConfigOpts) CreateContainer(state string, id string, spec *specs.Spec)
 	return factory.Create(id, config)
 }
 
-type RunnerOpts struct {
-	NoSubreaper   bool
-	ShouldDestroy bool
-	NoNewKeyring  bool
-	ConsoleSocket string
-	PidFile       string
-	PreserveFDs   int
-}
-
-func (ro *RunnerOpts) revisePidFile() error {
-	if ro.PidFile == "" {
+func (r *Runner) revisePidFile() error {
+	if r.PidFile == "" {
 		return nil
 	}
 
 	var err error
-	ro.PidFile, err = filepath.Abs(ro.PidFile)
+	r.PidFile, err = filepath.Abs(r.PidFile)
 	if err != nil {
 		return err
 	}
@@ -89,9 +80,9 @@ func (ro *RunnerOpts) revisePidFile() error {
 	return nil
 }
 
-func (ro *RunnerOpts) StartContainer(bundle, id, state string, act action, options ConfigOpts) (int, error) {
+func (r *Runner) StartContainer(bundle, id, state string, act action) (int, error) {
 
-	if err := ro.revisePidFile(); err != nil {
+	if err := r.revisePidFile(); err != nil {
 		return -1, err
 	}
 
@@ -109,7 +100,7 @@ func (ro *RunnerOpts) StartContainer(bundle, id, state string, act action, optio
 		nsock.setupSpec(spec)
 	}
 
-	container, err := options.CreateContainer(state, id, spec)
+	container, err := r.CreateContainer(state, id, spec)
 	if err != nil {
 		return -1, err
 	}
@@ -131,18 +122,11 @@ func (ro *RunnerOpts) StartContainer(bundle, id, state string, act action, optio
 		listenFDs = activation.Files(false)
 	}
 
-	r := &runner{
-		init:            true,
-		enableSubreaper: !ro.NoSubreaper,
-		shouldDestroy:   ro.ShouldDestroy,
-		listenFDs:       listenFDs,
-		preserveFDS:     ro.PreserveFDs,
-		pidFile:         ro.PidFile,
-		consoleSocket:   ro.ConsoleSocket,
-		container:       container,
-		action:          act,
-		notifySocket:    nsock,
-	}
+	r.init = true
+	r.listenFDs = listenFDs
+	r.container = container
+	r.action = act
+	r.notifySocket = nsock
 
 	return r.run(spec.Process)
 }

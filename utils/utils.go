@@ -65,22 +65,23 @@ func SetupSpec(bundle string) (spec *specs.Spec, err error) {
 	return spec, nil
 }
 
-type runner struct {
+type Runner struct {
+	FactoryOpts
+	EnableSubreaper bool
+	ShouldDestroy   bool
+	PreserveFDS     int
+	PidFile         string
+	ConsoleSocket   string
 	init            bool
-	enableSubreaper bool
-	shouldDestroy   bool
 	detach          bool
 	listenFDs       []*os.File
-	preserveFDS     int
-	pidFile         string
-	consoleSocket   string
 	container       libcontainer.Container
 	action          action
 	notifySocket    *notifySocket
 	subCgroupPaths  map[string]string
 }
 
-func (r *runner) run(p *specs.Process) (int, error) {
+func (r *Runner) run(p *specs.Process) (int, error) {
 	var err error
 
 	defer func() {
@@ -108,10 +109,10 @@ func (r *runner) run(p *specs.Process) (int, error) {
 	}
 
 	basefd := 3 + len(process.ExtraFiles)
-	for i := basefd; i < basefd+r.preserveFDS; i++ {
+	for i := basefd; i < basefd+r.PreserveFDS; i++ {
 		_, err = os.Stat("/proc/self/fd/" + strconv.Itoa(i))
 		if err != nil {
-			return -1, fmt.Errorf("unable to stat preserved fd %d (of %d): %w", i-basefd, r.preserveFDS, err)
+			return -1, fmt.Errorf("unable to stat preserved fd %d (of %d): %w", i-basefd, r.PreserveFDS, err)
 		}
 
 		process.ExtraFiles = append(process.ExtraFiles, os.NewFile(uintptr(i), "PreserveFD:"+strconv.Itoa(i)))
@@ -129,8 +130,8 @@ func (r *runner) run(p *specs.Process) (int, error) {
 
 	detach := r.detach || (r.action == ACT_CREATE)
 
-	handler := newSignalHandler(r.enableSubreaper, r.notifySocket)
-	tty, err := setupIO(process, rootuid, rootgid, p.Terminal, detach, r.consoleSocket)
+	handler := newSignalHandler(r.EnableSubreaper, r.notifySocket)
+	tty, err := setupIO(process, rootuid, rootgid, p.Terminal, detach, r.ConsoleSocket)
 	if err != nil {
 		return -1, err
 	}
@@ -156,8 +157,8 @@ func (r *runner) run(p *specs.Process) (int, error) {
 	}
 
 	tty.closePostStart()
-	if r.pidFile != "" {
-		if err := createPidFile(r.pidFile, process); err != nil {
+	if r.PidFile != "" {
+		if err := createPidFile(r.PidFile, process); err != nil {
 			r.terminate(process)
 			return -1, err
 		}
@@ -179,25 +180,25 @@ func (r *runner) run(p *specs.Process) (int, error) {
 	return status, err
 }
 
-func (r *runner) destoy() {
-	if r.shouldDestroy {
+func (r *Runner) destoy() {
+	if r.ShouldDestroy {
 		r.container.Destroy()
 	}
 }
 
-func (r *runner) terminate(process *libcontainer.Process) {
+func (r *Runner) terminate(process *libcontainer.Process) {
 	_ = process.Signal(unix.SIGKILL)
 	_, _ = process.Wait()
 }
 
-func (r *runner) checkTerminal(config *specs.Process) error {
+func (r *Runner) checkTerminal(config *specs.Process) error {
 	detach := r.detach || (r.action == ACT_CREATE)
 
-	if detach && config.Terminal && r.consoleSocket == "" {
+	if detach && config.Terminal && r.ConsoleSocket == "" {
 		return errors.New("cannot allocate tty without setting console socket")
 	}
 
-	if (!detach || !config.Terminal) && r.consoleSocket != "" {
+	if (!detach || !config.Terminal) && r.ConsoleSocket != "" {
 		return errors.New("cannot use console socket if kase will not detach or allocate tty")
 	}
 

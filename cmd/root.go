@@ -53,9 +53,10 @@ bundle is optional. The default value for bundle is the current directory.
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "kase [GLOBAL OPTIONS]",
-	Short: "Kase is a simple OCI compliant container runtime",
-	Long:  rootLong,
+	Use:     "kase [GLOBAL OPTIONS]",
+	Short:   "Kase is a simple OCI compliant container runtime",
+	Long:    rootLong,
+	Version: "0.0.1",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		switch {
 		case xdgDirUsed:

@@ -50,23 +50,23 @@ var runCmd = &cobra.Command{
 	Example:               "# kase run -b bundle/path container-id",
 	DisableFlagsInUseLine: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		runner := &utils.RunnerOpts{
-			NoSubreaper:   runFlag.noSubreaper,
-			ShouldDestroy: runFlag.keep,
-			NoNewKeyring:  runFlag.noNewKeyring,
-			ConsoleSocket: runFlag.consoleSocket,
-			PidFile:       runFlag.pidFile,
-			PreserveFDs:   runFlag.preseveFds,
-		}
-
-		createOpts := &utils.ConfigOpts{
+		createOpts := &utils.FactoryOpts{
 			UseSystemdCgroup: useSystemdCgroup,
 			NoPivotRoot:      runFlag.noPivot,
 			NoNewKeyring:     runFlag.noNewKeyring,
 			Rootless:         rootless,
 		}
 
-		status, err := runner.StartContainer(runFlag.bundle, args[0], statePath, utils.ACT_RUN, *createOpts)
+		runner := &utils.Runner{
+			FactoryOpts:     *createOpts,
+			EnableSubreaper: !runFlag.noSubreaper,
+			ShouldDestroy:   !runFlag.keep,
+			ConsoleSocket:   runFlag.consoleSocket,
+			PidFile:         runFlag.pidFile,
+			PreserveFDS:     runFlag.preseveFds,
+		}
+
+		status, err := runner.StartContainer(runFlag.bundle, args[0], statePath, utils.ACT_RUN)
 		if err == nil {
 			os.Exit(status)
 		}
