@@ -39,7 +39,7 @@ type FactoryOpts struct {
 }
 
 func (f *FactoryOpts) CreateContainer(state string, id string, spec *specs.Spec) (libcontainer.Container, error) {
-	rootlessCg, err := shouldUseRootlessCgroups(f.Rootless, f.UseSystemdCgroup)
+	rootlessCg, err := ShouldUseRootlessCgroups(f.Rootless, f.UseSystemdCgroup)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (r *Runner) StartContainer(bundle, id, state string, act action) (int, erro
 		return -1, err
 	}
 
-	spec, err := SetupSpec(bundle)
+	spec, err := setupSpec(bundle)
 	if err != nil {
 		return -1, err
 	}

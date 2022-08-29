@@ -33,11 +33,11 @@ const (
 	ACT_RUN
 )
 
-func loadSpec(bundle string) (spec *specs.Spec, err error) {
-	cf, err := os.Open(bundle)
+func loadSpec(specFIle string) (spec *specs.Spec, err error) {
+	cf, err := os.Open(specFIle)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("json specification file %s not found", bundle)
+			return nil, fmt.Errorf("json specification file %s not found", specFIle)
 		}
 	}
 
@@ -47,10 +47,10 @@ func loadSpec(bundle string) (spec *specs.Spec, err error) {
 		return nil, err
 	}
 
-	return spec, ValidateProcess(spec.Process)
+	return spec, validateProcess(spec.Process)
 }
 
-func SetupSpec(bundle string) (spec *specs.Spec, err error) {
+func setupSpec(bundle string) (spec *specs.Spec, err error) {
 	if bundle != "" {
 		if err := os.Chdir(bundle); err != nil {
 			return nil, err
@@ -67,13 +67,14 @@ func SetupSpec(bundle string) (spec *specs.Spec, err error) {
 
 type Runner struct {
 	FactoryOpts
+	ProcessOpts
 	EnableSubreaper bool
 	ShouldDestroy   bool
 	PreserveFDS     int
 	PidFile         string
 	ConsoleSocket   string
 	init            bool
-	detach          bool
+	Detach          bool
 	listenFDs       []*os.File
 	container       libcontainer.Container
 	action          action
@@ -128,7 +129,7 @@ func (r *Runner) run(p *specs.Process) (int, error) {
 		return -1, err
 	}
 
-	detach := r.detach || (r.action == ACT_CREATE)
+	detach := r.Detach || (r.action == ACT_CREATE)
 
 	handler := newSignalHandler(r.EnableSubreaper, r.notifySocket)
 	tty, err := setupIO(process, rootuid, rootgid, p.Terminal, detach, r.ConsoleSocket)
@@ -180,6 +181,180 @@ func (r *Runner) run(p *specs.Process) (int, error) {
 	return status, err
 }
 
+func (r *Runner) Exec(root, id string) (int, error) {
+
+	container, err := GetContainer(root, id)
+	if err != nil {
+		return -1, err
+	}
+
+	status, err := container.Status()
+	if err != nil {
+		return -1, err
+	}
+
+	pp := r.ProcessOpts
+
+	if status == libcontainer.Stopped {
+		return -1, errors.New("cannot exec into a stopped container")
+	}
+
+	if status == libcontainer.Paused && !pp.IgnorePaused {
+		return -1, errors.New("cannot exec into a paused container until explicitly allowed (--ignore paused=true)")
+	}
+
+	if pp.Process == "" && len(pp.Args) != 0 {
+		return -1, errors.New("process args cannot be empty")
+	}
+
+	state, err := container.State()
+	if err != nil {
+		return -1, err
+	}
+
+	bundle, ok := searchLabels(state.Config.Labels, "bundle")
+	if !ok {
+		return -1, errors.New("bundle not found in labels")
+	}
+
+	p, err := pp.GetProcess(bundle)
+	if err != nil {
+		return -1, err
+	}
+
+	paths, err := GetSubCgroupPaths(pp.Cgroups)
+	if err != nil {
+		return -1, err
+	}
+
+	r.EnableSubreaper = false
+	r.ShouldDestroy = false
+	r.init = false
+	r.container = container
+	r.action = ACT_RUN
+	r.subCgroupPaths = paths
+
+	return r.run(p)
+}
+
+func searchLabels(labels []string, key string) (string, bool) {
+	key += "+"
+	for _, l := range labels {
+		if strings.HasPrefix(l, key) {
+			return l[len(key):], true
+		}
+	}
+
+	return "", false
+}
+
+type ProcessOpts struct {
+	Process        string
+	Cwd            string
+	Apparmour      string
+	ProcessLabel   string
+	Cap            []string
+	Env            []string
+	Args           []string
+	Cgroups        []string
+	Tty            bool
+	NoNewPrivs     bool
+	IgnorePaused   bool
+	User           string
+	AdditionalGids []int64
+}
+
+func (pp *ProcessOpts) GetProcess(bundle string) (*specs.Process, error) {
+	if pp.Process != "" {
+		f, err := os.Open(pp.Process)
+		if err != nil {
+			return nil, err
+		}
+
+		defer f.Close()
+		var p specs.Process
+
+		if err := json.NewDecoder(f).Decode(&p); err != nil {
+			return nil, err
+		}
+
+		return &p, validateProcess(&p)
+	}
+
+	spec, err := setupSpec(bundle)
+	if err != nil {
+		return nil, err
+	}
+
+	p := spec.Process
+
+	p.Args = append(p.Args, pp.Args[1:]...)
+
+	if pp.Cwd != "" {
+		p.Cwd = pp.Cwd
+	}
+
+	if pp.Apparmour != "" {
+		p.ApparmorProfile = pp.Apparmour
+	}
+
+	if pp.ProcessLabel != "" {
+		p.SelinuxLabel = pp.ProcessLabel
+	}
+
+	if len(pp.Cap) > 0 {
+		for _, c := range pp.Cap {
+			p.Capabilities.Bounding = append(p.Capabilities.Bounding, c)
+			p.Capabilities.Ambient = append(p.Capabilities.Ambient, c)
+			p.Capabilities.Effective = append(p.Capabilities.Effective, c)
+			p.Capabilities.Inheritable = append(p.Capabilities.Inheritable, c)
+			p.Capabilities.Permitted = append(p.Capabilities.Permitted, c)
+		}
+	}
+
+	p.Env = append(p.Env, pp.Env...)
+
+	p.Terminal = false
+	p.NoNewPrivileges = false
+
+	if pp.Tty {
+		p.Terminal = pp.Tty
+	}
+
+	if p.NoNewPrivileges {
+		p.NoNewPrivileges = pp.NoNewPrivs
+	}
+
+	if pp.User != "" {
+		user := strings.SplitN(pp.User, ":", 2)
+		if len(user) > 1 {
+			gid, err := strconv.Atoi(user[1])
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse %s as int for uid: %w", user[1], err)
+			}
+
+			p.User.GID = uint32(gid)
+		}
+
+		uid, err := strconv.Atoi(user[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %s as int for gid: %w", user[0], err)
+		}
+
+		p.User.UID = uint32(uid)
+	}
+
+	for _, gid := range pp.AdditionalGids {
+		if gid < 0 {
+			return nil, fmt.Errorf("provided gid value must be a positive number %d", gid)
+		}
+
+		p.User.AdditionalGids = append(p.User.AdditionalGids, uint32(gid))
+	}
+
+	return p, validateProcess(p)
+}
+
 func (r *Runner) destoy() {
 	if r.ShouldDestroy {
 		r.container.Destroy()
@@ -192,7 +367,7 @@ func (r *Runner) terminate(process *libcontainer.Process) {
 }
 
 func (r *Runner) checkTerminal(config *specs.Process) error {
-	detach := r.detach || (r.action == ACT_CREATE)
+	detach := r.Detach || (r.action == ACT_CREATE)
 
 	if detach && config.Terminal && r.ConsoleSocket == "" {
 		return errors.New("cannot allocate tty without setting console socket")
@@ -205,7 +380,7 @@ func (r *Runner) checkTerminal(config *specs.Process) error {
 	return nil
 }
 
-func ValidateProcess(proc *specs.Process) error {
+func validateProcess(proc *specs.Process) error {
 	if proc == nil {
 		return errors.New("process property must not be empty")
 	}
@@ -299,6 +474,33 @@ func NewProcess(p specs.Process) (*libcontainer.Process, error) {
 
 	return lp, nil
 
+}
+
+func GetSubCgroupPaths(args []string) (map[string]string, error) {
+	if len(args) == 0 {
+		return nil, nil
+	}
+
+	paths := make(map[string]string, len(args))
+	for _, c := range args {
+		cs := strings.SplitN(c, ":", 3)
+		if len(cs) > 2 {
+			return nil, fmt.Errorf("invalid --cgroup argument: %s", c)
+		}
+
+		if len(cs) == 1 {
+			if len(args) != 1 {
+				return nil, fmt.Errorf("invalid --cgroup argument: %s (missing <controller>: prefix)", c)
+			}
+
+			paths[""] = c
+		} else {
+			for _, ctrl := range strings.Split(cs[0], ",") {
+				paths[ctrl] = cs[1]
+			}
+		}
+	}
+	return paths, nil
 }
 
 func setupIO(process *libcontainer.Process, rootuid, rootgid int, createTty, detach bool, sockpath string) (*tty, error) {
@@ -443,7 +645,7 @@ func parseBoolOrAuto(rootless string) (*bool, error) {
 	return &b, nil
 }
 
-func shouldUseRootlessCgroups(rootless string, systemdCg bool) (bool, error) {
+func ShouldUseRootlessCgroups(rootless string, systemdCg bool) (bool, error) {
 	if rootless != "" {
 		b, err := parseBoolOrAuto(rootless)
 		if err != nil {

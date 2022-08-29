@@ -39,13 +39,6 @@ var createCmd = &cobra.Command{
 	Args:                  cobra.ExactArgs(1),
 	DisableFlagsInUseLine: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// runner := &utils.RunnerOpts{
-		// 	ConsoleSocket: cFlag.consoleSocket,
-		// 	PidFile:       cFlag.pidFile,
-		// 	NoNewKeyring:  cFlag.noNewKeyring,
-		// 	PreserveFDs:   cFlag.preseveFds,
-		// }
-
 		options := utils.FactoryOpts{
 			UseSystemdCgroup: useSystemdCgroup,
 			NoPivotRoot:      cFlag.noPivot,
