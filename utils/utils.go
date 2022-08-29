@@ -203,7 +203,7 @@ func (r *Runner) Exec(root, id string) (int, error) {
 		return -1, errors.New("cannot exec into a paused container until explicitly allowed (--ignore paused=true)")
 	}
 
-	if pp.Process == "" && len(pp.Args) != 0 {
+	if pp.Process == "" && len(pp.Args) == 1 {
 		return -1, errors.New("process args cannot be empty")
 	}
 
@@ -238,7 +238,7 @@ func (r *Runner) Exec(root, id string) (int, error) {
 }
 
 func searchLabels(labels []string, key string) (string, bool) {
-	key += "+"
+	key += "="
 	for _, l := range labels {
 		if strings.HasPrefix(l, key) {
 			return l[len(key):], true
@@ -527,11 +527,6 @@ func setupIO(process *libcontainer.Process, rootuid, rootgid int, createTty, det
 				t.consoleC <- t.recvtty(parent)
 			}()
 		} else {
-			// dial socketpath
-			// typecasst unix conn unto connection
-			// append to poststart
-			// get underlying file and add to poststart
-			// set console socket to undetlying file
 			conn, err := net.Dial("unix", sockpath)
 			if err != nil {
 				return nil, err
