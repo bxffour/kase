@@ -57,3 +57,10 @@ linker_flags = "-s -X ${project}/cmd.version=${version} -X ${project}/cmd.buildT
 build/kase:
 	@echo 'building kase'
 	GOOS=linux CGO_ENABLED=1 go build -tags ${tags} -ldflags=${linker_flags} -o ./bin/kase
+
+##install/kase: install kase to dest dir
+DESTDIR ?= /usr/local/bin
+.PHONY: install/kase
+install/kase: build/kase
+	@echo 'installing kase'
+	install -D -m0755 ./bin/kase ${DESTDIR}/kase
