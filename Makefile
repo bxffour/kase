@@ -61,6 +61,6 @@ build/kase:
 ##install/kase: install kase to dest dir
 DESTDIR ?= /usr/local/bin
 .PHONY: install/kase
-install/kase: build/kase
+install/kase:
 	@echo 'installing kase'
 	install -D -m0755 ./bin/kase ${DESTDIR}/kase
