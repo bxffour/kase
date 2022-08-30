@@ -1,4 +1,4 @@
-// copied directly from https://github.com/opencontainers/runc
+// credit: https://github.com/opencontainers/runc
 package utils
 
 import (

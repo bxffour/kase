@@ -25,8 +25,15 @@ import (
 	"strings"
 
 	"github.com/bxffour/kase/utils"
+	"github.com/opencontainers/runc/libcontainer/seccomp"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+)
+
+var (
+	version   = "NULL"
+	commit    string
+	buildTime string
 )
 
 var (
@@ -51,12 +58,14 @@ The  <container-id> is a unique identifier for the container to be started. Prov
 bundle is optional. The default value for bundle is the current directory.
 `
 
+var verstr = getVersionString(version, buildTime, commit)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "kase [GLOBAL OPTIONS]",
 	Short:   "Kase is a simple OCI compliant container runtime",
 	Long:    rootLong,
-	Version: "0.0.1",
+	Version: verstr,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		switch {
 		case xdgDirUsed:
@@ -98,6 +107,10 @@ func init() {
 		defaultStateDir = xdgRuntimeDir + "/kase"
 		xdgDirUsed = true
 	}
+
+	verStr := getVersionString(version, buildTime, commit)
+
+	rootCmd.SetVersionTemplate(verStr)
 
 	rootCmd.PersistentFlags().StringVar(&statePath, "root", defaultStateDir, "root directory for container state")
 	rootCmd.PersistentFlags().BoolVar(&useSystemdCgroup, "systemd-cgroup", false, "enable systemd cgroup support")
@@ -143,4 +156,23 @@ func configLogrus(debug bool, logFile, logFormat string) error {
 	}
 
 	return nil
+}
+
+func getVersionString(version, buildtime, commit string) string {
+	goVersion := runtime.Version()
+	seccompv := "unsupported"
+
+	major, minor, micro := seccomp.Version()
+	if major+minor+micro != 0 {
+		seccompv = fmt.Sprintf("%d.%d.%d\n", major, minor, micro)
+	}
+
+	s := fmt.Sprintf(`version:		%s
+commit:			%s
+buildTime:		%s
+go:			%s
+libseccomp:		%s`,
+		version, commit, buildtime, goVersion, seccompv)
+
+	return s
 }

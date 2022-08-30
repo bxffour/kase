@@ -82,7 +82,7 @@ var execCmd = &cobra.Command{
 			os.Exit(status)
 		}
 
-		logrus.Fatal(err)
+		logrus.Error(err)
 	},
 }
 
