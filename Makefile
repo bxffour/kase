@@ -8,7 +8,9 @@ help:
 	@echo 'Usage:'
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' | sed -e 's/^/ /'
 
-
+.PHONY: confirm
+confirm:
+	@echo -n 'Are you sure you want to perform this operation? [y/N] ' && read ans && [ $${ans:-N} = y ]
 #======================================================================================================#
 # QUALITY CONTROL
 #======================================================================================================#
@@ -37,6 +39,7 @@ vendor:
 #======================================================================================================#
 # BUILD
 #======================================================================================================#
+
 project = github.com/bxffour/kase
 current_time = $(shell date --iso-8601=seconds)
 commit = $(shell git describe --always --dirty --tags --long)
@@ -59,11 +62,16 @@ build/kase:
 	GOOS=linux CGO_ENABLED=1 go build -tags ${tags} -ldflags=${linker_flags} -o ./bin/kase
 
 ##install/kase: install kase to dest dir
-DESTDIR ?= /usr/local/bin
+INSTALLDIR ?= /usr/local/bin
 .PHONY: install/kase
 install/kase:
 	@echo 'installing kase'
-	install -D -m0755 ./bin/kase ${DESTDIR}/kase
+	install -D -m0755 ./bin/kase ${INSTALLDIR}/kase
+
+
+#======================================================================================================#
+# TEST
+#======================================================================================================#
 
 ##integrate/docker: set kase as your default docker runtime. (for tests only)
 CFGDIR ?= /etc/docker
@@ -89,4 +97,35 @@ ifneq ("$(wildcard $(DESTFILE))", "")
 	
 else
 	@echo 'daemon.json does not exist. It is safe to proceed'
+endif
+
+#======================================================================================================#
+# CLEAN UP
+#======================================================================================================#
+
+STRING ?= $(shell cat $(DESTFILE) | grep '\"default-runtime\"' | awk '{print $2}' | sed 's/,//')
+
+##cleanup/kase: remove all resources. (config files and binaries)
+.PHONY: cleanup/kase
+cleanup/kase: confirm
+ifneq ("$(wildcard $(INSTALLDIR)/kase)", "")
+	@echo 'removing binary'
+	@rm $(INSTALLDIR)/kase
+endif
+	
+ifneq ("$(wildcard $(CFGDIR)/daemon.json.old)", "")
+	@echo 'restoring old daemon.json file'
+	@rm $(DESTFILE)
+	@mv $(CFGDIR)/daemon.json.old $(CFGDIR)/daemon.json
+else
+	@echo 'no backup of daemon.json found, moving on!'
+endif
+
+ifneq ("$(wildcard $(DESTFILE))", "")
+    ifneq (,$(findstring $(STRING), $(shell cat $(DESTFILE))))
+	    @echo 'found previously installed daemon.json'
+	    @echo -n 'Do you want to delete it? [y/N] ' && read ans && [ $${ans:-N} = y ]
+	    @echo 'removing daemon.json...'
+	    @rm $(DESTFILE)
+endif
 endif
