@@ -1,0 +1,9 @@
+{
+    "default-runtime": "kase",
+    "runtimes": {
+        "kase": {
+            "path": "/usr/local/bin/kase",
+            "runtimeArgs": []
+        }
+    }
+} 

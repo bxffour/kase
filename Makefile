@@ -64,3 +64,29 @@ DESTDIR ?= /usr/local/bin
 install/kase:
 	@echo 'installing kase'
 	install -D -m0755 ./bin/kase ${DESTDIR}/kase
+
+##integrate/docker: set kase as your default docker runtime. (for tests only)
+CFGDIR ?= /etc/docker
+cfgfile = daemon.json
+DESTFILE = $(CFGDIR)/$(cfgfile)
+
+.PHONY: integrate/docker
+integrate/docker: check
+	@echo 'copying daemon.json...'
+	cp ./extras/daemon.json $(DESTFILE)
+	@echo 'sending SIGHUP to dockerd'
+	pkill -SIGHUP dockerd
+	@echo 'restarting docker.service'
+	systemctl restart docker.service
+
+.PHONY: check
+check:
+ifneq ("$(wildcard $(DESTFILE))", "")
+	@echo 'daemon.json file already exists. You might lose your config if you proceed'
+	@echo -n 'Do you want to proceed? [y/N]' && read ans && [ $${ans:-N} = y ]
+	@echo 'backing up old daemon.json'
+	@mv $(DESTFILE) $(CFGDIR)/daemon.json.old
+	
+else
+	@echo 'daemon.json does not exist. It is safe to proceed'
+endif
