@@ -3,9 +3,6 @@ Kase is a tool for provisioning containers as per the OCI runtime specification.
 
 ## Installation
 ---------------
-\
-Commands
-----------
 
     $ git clone https://github.com/bxffour/kase
     $ cd kase/
