@@ -73,8 +73,46 @@ Demo
 ## Usage
 ------------
 
-To download, unpack and run rootless container
+Skopeo and Umoci can be used to download and unpack OCI bundles to be used with kase
 
     $ skopeo copy docker://alpine:latest oci:alpine:latest
     $ umoci unpack --image alpine:latest alpine-bundle --rootless
-    $ kase run -b alpine-bundle
+
+To run a container
+
+    $ kase run -b alpine-bundle <container-id>
+
+To create a container using bundle
+
+    $ kase create -b alpine-bundle <container-id>
+
+To start a container
+
+    $ kase start <container-id>
+
+To pause all processes in a given container
+
+    $ kase pause <container-id>
+
+To delete a container
+
+    $ kase delete <container-id>
+
+To list containers
+
+    $ kase list
+
+For more info on oother commands run:
+
+    $ kase --help
+    $ kase [command] --help             // for help with a specific command
+
+# Credit
+
+https://github.com/opencontainers/runc - My deepest thanks to the contributors and maintainers of the runc project. Studying its well documented source made me undoubtedly taught me invaluable lessons on Go, linux and systems programming. 
+
+## other projects
+
+https://github.com/duyanghao/sample-container-runtime
+
+https://unixism.net/2020/06containers-the-hard-way-gocker-a-mini-docker-written-in-go/
