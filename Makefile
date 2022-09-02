@@ -113,6 +113,7 @@ ifneq ("$(wildcard $(INSTALLDIR)/kase)", "")
 	@rm $(INSTALLDIR)/kase
 endif
 
+##cleanup/docker: cleanup modifications made by the integrate/docker target.
 .PHONY: cleanup/docker
 cleanup/docker:
 ifneq ("$(wildcard $(CFGDIR)/daemon.json.old)", "")
