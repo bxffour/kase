@@ -1,5 +1,7 @@
 # kase
-Kase is a tool for provisioning containers as per the OCI runtime specification. 
+Kase is a container runtime I implemeted to learn about the inner workings of container 
+runtimes. This project uses opencontainer's libcontainer package to handle the low level
+interfacing with the linux kernel.
 
 ## Installation
 ---------------
