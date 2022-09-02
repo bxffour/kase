@@ -29,8 +29,13 @@ install path
 To specify your own install path 
 
     $ INSTALLDIR=/path/to/dir make install/kase
+
+Demo
+-------
+![installation](https://github.com/bxffour/kase)
+
 \
-Integration into Docker
+Integrating kase into Docker
 ------------------------
 
 To integrate into docker the kase executable must be installed into the default install 
