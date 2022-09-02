@@ -32,7 +32,7 @@ To specify your own install path
 
 Demo
 -------
-![installation](https://github.com/bxffour/kase)
+![installation](https://github.com/bxffour/kase/blob/main/extras/kase.gif)
 
 \
 Integrating kase into Docker
@@ -68,7 +68,7 @@ Cleanup daemon.json:
 
 Demo
 -------
-![installation](https://github.com/bxffour/kase)
+![docker](https://github.com/bxffour/kase/blob/main/extras/docker.gif)
 
 ## Usage
 ------------
