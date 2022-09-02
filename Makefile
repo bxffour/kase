@@ -45,7 +45,7 @@ current_time = $(shell date --iso-8601=seconds)
 commit = $(shell git describe --always --dirty --tags --long)
 branch = $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 suf = ""
-tags ?= "seccomp netgo osusergo"
+BUILDTAGS ?= seccomp
 
 ifeq ($(branch), develop)
     suf = +dev 
@@ -59,7 +59,7 @@ linker_flags = "-s -X ${project}/cmd.version=${version} -X ${project}/cmd.buildT
 .PHONY: build/kase
 build/kase:
 	@echo 'building kase'
-	GOOS=linux CGO_ENABLED=1 go build -tags ${tags} -ldflags=${linker_flags} -o ./bin/kase
+	GOOS=linux CGO_ENABLED=1 go build -tags "${BUILDTAGS} netgo osusergo" -ldflags=${linker_flags} -o ./bin/kase
 
 ##install/kase: install kase to dest dir
 INSTALLDIR ?= /usr/local/bin
@@ -107,15 +107,21 @@ STRING ?= $(shell cat $(DESTFILE) | grep '\"default-runtime\"' | awk '{print $2}
 
 ##cleanup/kase: remove all resources. (config files and binaries)
 .PHONY: cleanup/kase
-cleanup/kase: confirm
+cleanup/kase: confirm cleanup/docker
 ifneq ("$(wildcard $(INSTALLDIR)/kase)", "")
 	@echo 'removing binary'
 	@rm $(INSTALLDIR)/kase
 endif
-	
+
+.PHONY: cleanup/docker
+cleanup/docker:
 ifneq ("$(wildcard $(CFGDIR)/daemon.json.old)", "")
 	@echo 'restoring old daemon.json file'
-	@rm $(DESTFILE)
+
+ifneq ("$(wildcard $(CFGDIR)/daemon.json)", "")
+		@rm $(DESTFILE)
+    endif
+	
 	@mv $(CFGDIR)/daemon.json.old $(CFGDIR)/daemon.json
 else
 	@echo 'no backup of daemon.json found, moving on!'
